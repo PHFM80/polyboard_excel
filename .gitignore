@@ -39,3 +39,6 @@ Thumbs.db
 # Local secrets and env files
 .env
 .env.*
+
+# PDFs de prueba / muestras (no versionar)
+*.pdf

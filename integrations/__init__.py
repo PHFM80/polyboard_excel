@@ -1,1 +1,1 @@
-﻿# Package marker for integration layer.
+# integrations

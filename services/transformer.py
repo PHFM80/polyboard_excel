@@ -1,29 +1,47 @@
-﻿from __future__ import annotations
+# services/transformer.py
+"""Transformación de datos extraídos al formato columnas del proveedor."""
 
-from ..domain.models import ExcelRow, ParsedData, TransformationResult
+from __future__ import annotations
+
+from ..domain.models import ExtractedData
+from ..utils.espesor_lookup import buscar_espesor
+from .veta import inferir_veta
+
+# Columnas exigidas por el instructivo del proveedor (planilla multipedido)
+COLUMNAS_PROVEEDOR = (
+    "DESCRIPCION",
+    "COLOR",
+    "ESPESOR",
+    "LONGITUD",
+    "ANCHO",
+    "CANTIDAD",
+    "VETA",
+    "CANTEADO",
+    "PEGADO PVC",
+)
 
 
-class DataTransformer:
-    def transform(self, parsed_data: ParsedData) -> TransformationResult:
-        raise NotImplementedError
-
-
-class ProviderExcelTransformer(DataTransformer):
-    """Maps parsed rows to a tabular format ready for Excel export."""
-
-    def transform(self, parsed_data: ParsedData) -> TransformationResult:
-        headers = ("line_number", "raw_text", "fields")
-        rows: list[ExcelRow] = []
-
-        for row in parsed_data.rows:
-            rows.append(
-                ExcelRow(
-                    values=(
-                        str(row.line_number),
-                        row.raw_text,
-                        " | ".join(row.fields),
-                    )
-                )
-            )
-
-        return TransformationResult(headers=headers, rows=rows)
+def to_provider_rows(extracted: ExtractedData) -> list[dict[str, str | int]]:
+    """
+    Convierte ExtractedData en filas para Excel del proveedor.
+    Altura → LONGITUD, Anchura → ANCHO. CANTEADO y PEGADO PVC vacíos por ahora.
+    """
+    rows: list[dict[str, str | int]] = []
+    for row in extracted.lista_corte:
+        espesor = buscar_espesor(row.material, extracted.espesor_por_material)
+        veta = inferir_veta(row.material)
+        descripcion = (row.referencia or "").strip()
+        if row.mueble:
+            descripcion = f"{descripcion}_{row.mueble}" if descripcion else row.mueble
+        rows.append({
+            "DESCRIPCION": descripcion,
+            "COLOR": row.material or "",
+            "ESPESOR": espesor,
+            "LONGITUD": int(round(row.altura_mm)),
+            "ANCHO": int(round(row.anchura_mm)),
+            "CANTIDAD": row.cantidad,
+            "VETA": veta,
+            "CANTEADO": "",
+            "PEGADO PVC": "",
+        })
+    return rows
